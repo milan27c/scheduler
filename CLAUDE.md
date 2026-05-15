@@ -538,6 +538,44 @@ Priority is an optional field. When set, it displays as a badge with the followi
 - **Right:** Bell icon (with red dot badge) · Settings icon (links to `/settings`) · divider · Avatar + name + email
 - No sidebar, no collapse toggle — layout is full-width for all pages
 
+### Custom Dropdown Menu Pattern (canonical — use for sort/action menus)
+
+For custom button-triggered dropdowns (not react-select), use a `useRef` + `useEffect` click-outside handler to close on outside click. Never leave custom dropdowns without this.
+
+**Selected option style:** `bg-[var(--color-primary-light)] text-[#5231FF] font-semibold` — light primary background with primary text (matches the active filter button style). Never use solid `bg-[#5231FF] text-white` for selected state in dropdowns.
+
+**Hover style:** `hover:bg-[var(--color-gray-100)]`
+
+**Click-outside pattern:**
+```tsx
+const menuRef = useRef<HTMLDivElement>(null);
+useEffect(() => {
+  const handler = (e: MouseEvent) => {
+    if (menuRef.current && !menuRef.current.contains(e.target as Node))
+      setShowMenu(false);
+  };
+  document.addEventListener("mousedown", handler);
+  return () => document.removeEventListener("mousedown", handler);
+}, []);
+
+// In JSX:
+<div className="relative" ref={menuRef}>
+  <button onClick={() => setShowMenu((v) => !v)}>...</button>
+  {showMenu && (
+    <div className="absolute right-0 top-full mt-1 z-[100] bg-[var(--surface-card)] border border-[var(--color-gray-200)] rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.1)] overflow-hidden py-1 min-w-[200px]">
+      {options.map((opt) => (
+        <button key={opt.value} onClick={() => { /* apply */ setShowMenu(false); }}
+          className={`w-full text-left px-4 py-2 text-sm transition-colors ${active === opt.value ? "bg-[var(--color-primary-light)] text-[#5231FF] font-semibold" : "text-[var(--color-gray-700)] hover:bg-[var(--color-gray-100)]"}`}>
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+```
+
+**z-index:** Always use `z-[100]` so the menu renders above table rows and other stacked content.
+
 ### Tab Switcher Pattern (canonical — use everywhere)
 
 Use this style for all in-page tab switchers. Reference implementation: `app/schedule/page.tsx` and `app/tasks/page.tsx`.

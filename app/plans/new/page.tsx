@@ -30,6 +30,7 @@ const PREDEFINED_HOURS: Record<string, number> = {
 };
 
 interface DateRangeState { startDate: Date; endDate: Date; key: string; }
+type NullableDateRange = DateRangeState | null;
 type Urgency = "urgent" | "high" | "medium" | "low";
 
 interface DayItem {
@@ -96,7 +97,7 @@ export default function CreateCampaignPlanPage() {
   // Step 1
   const [client, setClient] = useState<{ value: string; label: string } | null>(null);
   const [campaignName, setCampaignName] = useState("");
-  const [dateRange, setDateRange] = useState<DateRangeState>({ startDate: new Date(), endDate: new Date(), key: "selection" });
+  const [dateRange, setDateRange] = useState<NullableDateRange>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerMonth, setPickerMonth] = useState(startOfMonth(new Date()));
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
@@ -262,7 +263,7 @@ export default function CreateCampaignPlanPage() {
     setCalendarData((prev) => ({ ...prev, [key]: [...(prev[key] || []), item] }));
   };
 
-  const isInRange = (d: Date) => isWithinInterval(d, { start: dateRange.startDate, end: dateRange.endDate });
+  const isInRange = (d: Date) => dateRange ? isWithinInterval(d, { start: dateRange.startDate, end: dateRange.endDate }) : false;
 
   const saveCampaign = () => {
     console.log("[DEBUG] Saving campaign with calendarData:", calendarData);
@@ -339,7 +340,7 @@ export default function CreateCampaignPlanPage() {
     if (editId) {
       const updated = existing.map((c) =>
         c.id === editId
-          ? { ...c, client: client?.value || "", campaignName: name, startDate: format(dateRange.startDate, "yyyy-MM-dd"), endDate: format(dateRange.endDate, "yyyy-MM-dd"), notes, items: calendarData }
+          ? { ...c, client: client?.value || "", campaignName: name, startDate: format(dateRange?.startDate ?? new Date(), "yyyy-MM-dd"), endDate: format(dateRange?.endDate ?? new Date(), "yyyy-MM-dd"), notes, items: calendarData }
           : c
       );
       localStorage.setItem("campaigns", JSON.stringify(updated));
@@ -351,8 +352,8 @@ export default function CreateCampaignPlanPage() {
         id: crypto.randomUUID(),
         client: client?.value || "",
         campaignName: name,
-        startDate: format(dateRange.startDate, "yyyy-MM-dd"),
-        endDate: format(dateRange.endDate, "yyyy-MM-dd"),
+        startDate: format(dateRange?.startDate ?? new Date(), "yyyy-MM-dd"),
+        endDate: format(dateRange?.endDate ?? new Date(), "yyyy-MM-dd"),
         notes,
         items: calendarData,
         createdAt: new Date().toISOString(),
@@ -440,7 +441,7 @@ export default function CreateCampaignPlanPage() {
 
       {/* ── STEP 1 ── */}
       {step === 1 && (
-        <><div className="px-6 pb-6 flex flex-col items-center">
+        <><div className="flex-1 overflow-y-auto px-6 pb-6 flex flex-col items-center">
           <div className="w-full max-w-lg">
             <div className="bg-[var(--surface-card)] rounded-xl border border-[var(--color-card-border)] shadow-[0_1px_4px_rgba(0,0,0,0.06)] p-6 space-y-4">
               <div>
@@ -458,17 +459,17 @@ export default function CreateCampaignPlanPage() {
                     onClick={() => { setShowDatePicker(!showDatePicker); setPickingStart(true); }}
                     className={`${inputClass} flex items-center justify-between cursor-pointer`}
                   >
-                    <span className="text-[var(--color-gray-900)]">
-                      {format(dateRange.startDate, "MMM dd, yyyy")} — {format(dateRange.endDate, "MMM dd, yyyy")}
+                    <span className={dateRange ? "text-[var(--color-gray-900)]" : "text-[var(--color-gray-500)]"}>
+                      {dateRange ? `${format(dateRange.startDate, "MMM dd, yyyy")} — ${format(dateRange.endDate, "MMM dd, yyyy")}` : "Select campaign period…"}
                     </span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--color-gray-500)]"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   </button>
                   {showDatePicker && (() => {
                     const month1 = pickerMonth;
                     const month2 = addMonths(pickerMonth, 1);
-                    const effectiveEnd = !pickingStart && hoverDate
+                    const effectiveEnd = (!pickingStart && hoverDate && dateRange)
                       ? (isBefore(hoverDate, dateRange.startDate) ? dateRange.startDate : hoverDate)
-                      : dateRange.endDate;
+                      : (dateRange?.endDate ?? null);
 
                     const renderMonth = (month: Date, arrow?: "prev" | "next") => {
                       const mStart = startOfMonth(month);
@@ -505,11 +506,15 @@ export default function CreateCampaignPlanPage() {
                                 {week.map((day, di) => {
                                   const inMonth = day.getMonth() === month.getMonth();
                                   const isPast = isBefore(day, today) && !isToday(day);
-                                  const isStart = isSameDay(day, dateRange.startDate);
-                                  const isEnd = !pickingStart ? isSameDay(day, effectiveEnd) : isSameDay(day, dateRange.endDate);
-                                  const inRange = !pickingStart
-                                    ? isWithinInterval(day, { start: dateRange.startDate, end: effectiveEnd })
-                                    : isWithinInterval(day, { start: dateRange.startDate, end: dateRange.endDate });
+                                  const isStart = dateRange ? isSameDay(day, dateRange.startDate) : false;
+                                  const isEnd = dateRange
+                                    ? (!pickingStart && effectiveEnd ? isSameDay(day, effectiveEnd) : isSameDay(day, dateRange.endDate))
+                                    : false;
+                                  const inRange = dateRange && effectiveEnd
+                                    ? (!pickingStart
+                                        ? isWithinInterval(day, { start: dateRange.startDate, end: effectiveEnd })
+                                        : isWithinInterval(day, { start: dateRange.startDate, end: dateRange.endDate }))
+                                    : false;
                                   const isEndpoint = isStart || isEnd;
 
                                   if (!inMonth) return <div key={di} />;
@@ -520,10 +525,10 @@ export default function CreateCampaignPlanPage() {
                                       {inRange && !isStart && !isEnd && (
                                         <div className="absolute inset-y-1 inset-x-0 bg-[rgba(82,49,255,0.1)]" />
                                       )}
-                                      {inRange && isStart && !isSameDay(dateRange.startDate, effectiveEnd) && (
+                                      {inRange && isStart && dateRange && effectiveEnd && !isSameDay(dateRange.startDate, effectiveEnd) && (
                                         <div className="absolute inset-y-1 right-0 left-1/2 bg-[rgba(82,49,255,0.1)]" />
                                       )}
-                                      {inRange && isEnd && !isSameDay(dateRange.startDate, effectiveEnd) && (
+                                      {inRange && isEnd && dateRange && effectiveEnd && !isSameDay(dateRange.startDate, effectiveEnd) && (
                                         <div className="absolute inset-y-1 left-0 right-1/2 bg-[rgba(82,49,255,0.1)]" />
                                       )}
                                       <button
@@ -536,10 +541,10 @@ export default function CreateCampaignPlanPage() {
                                             setDateRange({ startDate: day, endDate: day, key: "selection" });
                                             setPickingStart(false);
                                           } else {
-                                            if (isBefore(day, dateRange.startDate)) {
+                                            if (dateRange && isBefore(day, dateRange.startDate)) {
                                               setDateRange({ startDate: day, endDate: dateRange.startDate, key: "selection" });
                                             } else {
-                                              setDateRange((r) => ({ ...r, endDate: day }));
+                                              setDateRange((r) => r ? { ...r, endDate: day } : { startDate: day, endDate: day, key: "selection" });
                                             }
                                             setHoverDate(null);
                                             setPickingStart(true);
@@ -587,11 +592,11 @@ export default function CreateCampaignPlanPage() {
             </div>
           </div>
         </div>
-        <div className="sticky bottom-0 z-10 flex items-center justify-between px-6 py-4 border-t border-[var(--color-gray-200)] bg-[var(--surface-card)]">
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-[var(--color-gray-200)] bg-[var(--surface-card)]">
           <button onClick={() => router.back()} className="inline-flex items-center gap-2 border border-[var(--color-gray-200)] text-[var(--color-gray-700)] bg-[var(--surface-card)] px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-[var(--color-gray-100)] transition-colors">
             <ChevronLeft size={16} /> Cancel
           </button>
-          <button onClick={() => setStep(2)} disabled={!client} className="inline-flex items-center gap-2 bg-[#5231FF] text-white px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+          <button onClick={() => setStep(2)} disabled={!client || !dateRange} className="inline-flex items-center gap-2 bg-[#5231FF] text-white px-5 py-2.5 rounded-lg text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
             Next <ChevronRight size={16} />
           </button>
         </div>
@@ -600,7 +605,7 @@ export default function CreateCampaignPlanPage() {
 
       {/* ── STEP 2 ── */}
       {step === 2 && (
-        <><div className="px-6 pb-6 flex flex-col items-center">
+        <><div className="flex-1 overflow-y-auto px-6 pb-6 flex flex-col items-center">
           <div className="w-full max-w-lg">
             <div className="bg-[var(--surface-card)] rounded-xl border border-[var(--color-card-border)] shadow-[0_1px_4px_rgba(0,0,0,0.06)] p-6">
               <h2 className="text-base font-semibold text-[var(--color-gray-900)] mb-1">Import Content Items</h2>
@@ -653,15 +658,15 @@ export default function CreateCampaignPlanPage() {
             </div>
           </div>
         </div>
-        <div className="sticky bottom-0 z-10 flex items-center justify-between px-6 py-4 border-t border-[var(--color-gray-200)] bg-[var(--surface-card)]">
+        <div className="shrink-0 flex items-center justify-between px-6 py-4 border-t border-[var(--color-gray-200)] bg-[var(--surface-card)]">
           <button onClick={() => setStep(1)} className="inline-flex items-center gap-2 border border-[var(--color-gray-200)] text-[var(--color-gray-700)] bg-[var(--surface-card)] px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-[var(--color-gray-100)] transition-colors">
             <ChevronLeft size={16} /> Back
           </button>
           <div className="flex items-center gap-3">
-            <button onClick={() => { setStep(3); setCurrentMonth(dateRange.startDate); }} className="inline-flex items-center gap-2 border border-[var(--color-gray-200)] text-[var(--color-gray-700)] bg-[var(--surface-card)] px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-[var(--color-gray-100)] transition-colors">
+            <button onClick={() => { setStep(3); setCurrentMonth(dateRange?.startDate ?? new Date()); }} className="inline-flex items-center gap-2 border border-[var(--color-gray-200)] text-[var(--color-gray-700)] bg-[var(--surface-card)] px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-[var(--color-gray-100)] transition-colors">
               Skip
             </button>
-            <button onClick={() => { setStep(3); setCurrentMonth(dateRange.startDate); }} className="inline-flex items-center gap-2 bg-[#5231FF] text-white px-5 py-2.5 rounded-lg text-sm font-semibold  transition-colors">
+            <button onClick={() => { setStep(3); setCurrentMonth(dateRange?.startDate ?? new Date()); }} className="inline-flex items-center gap-2 bg-[#5231FF] text-white px-5 py-2.5 rounded-lg text-sm font-semibold  transition-colors">
               Next <ChevronRight size={16} />
             </button>
           </div>
@@ -679,13 +684,13 @@ export default function CreateCampaignPlanPage() {
             <div className="flex items-center justify-between px-6 py-3 border-b border-[var(--color-gray-200)] shrink-0">
               <button
                 onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
-                disabled={isBefore(subMonths(currentMonth, 1), subMonths(startOfMonth(dateRange.startDate), 1))}
+                disabled={dateRange ? isBefore(subMonths(currentMonth, 1), subMonths(startOfMonth(dateRange.startDate), 1)) : false}
                 className="p-1.5 rounded-lg hover:bg-[var(--color-gray-100)] text-[var(--color-gray-500)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               ><ChevronLeft size={18} /></button>
               <span className="text-sm font-semibold text-[var(--color-gray-900)]">{format(currentMonth, "MMMM yyyy")}</span>
               <button
                 onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
-                disabled={!isBefore(currentMonth, endOfMonth(dateRange.endDate))}
+                disabled={dateRange ? !isBefore(currentMonth, endOfMonth(dateRange.endDate)) : false}
                 className="p-1.5 rounded-lg hover:bg-[var(--color-gray-100)] text-[var(--color-gray-500)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               ><ChevronRight size={18} /></button>
             </div>
@@ -706,8 +711,8 @@ export default function CreateCampaignPlanPage() {
                     const inRange = isInRange(day);
                     const key = format(day, "yyyy-MM-dd");
                     const items = calendarData[key] || [];
-                    const isStart = isSameDay(day, dateRange.startDate);
-                    const isEnd = isSameDay(day, dateRange.endDate);
+                    const isStart = dateRange ? isSameDay(day, dateRange.startDate) : false;
+                    const isEnd = dateRange ? isSameDay(day, dateRange.endDate) : false;
 
                     return (
                       <div

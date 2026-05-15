@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { getTaskImages, type UploadedImage } from "@/lib/imageStore";
+import { useMemberPhotos } from "@/lib/useMemberPhotos";
 
 interface ReviewTask {
   id: string;
@@ -98,6 +99,7 @@ export default function InReviewPanel() {
   const [captionEdit, setCaptionEdit] = useState(""); // manager editing caption
   const [isEditingCaption, setIsEditingCaption] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const memberPhotos = useMemberPhotos();
 
   useEffect(() => { setMounted(true); load(); }, []);
 
@@ -115,7 +117,7 @@ export default function InReviewPanel() {
         const member = team.find((m) => m.id === memberId);
         (taskList as any[]).forEach((t) => {
           if (seen.has(t.id)) return;
-          const base = { ...t, assigneeId: memberId, assigneeName: member?.name ?? "Unknown", assigneePhoto: member?.photo, planDate: plan.date };
+          const base = { ...t, assigneeId: memberId, assigneeName: member?.name ?? "Unknown", assigneePhoto: memberPhotos[memberId] ?? member?.photo, planDate: plan.date };
           if (t.status === "internal-review") {
             seen.add(t.id);
             if (t.captionWriterId) {

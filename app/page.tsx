@@ -137,27 +137,16 @@ export default function Dashboard() {
 
   if (user?.role !== "manager") return <CreatorDashboard />;
 
-  const today = new Date();
-  const dateFormatter = new Intl.DateTimeFormat("en-US", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-  });
-
   return (
     <main className="flex-1">
       <div className="p-6">
-        <DashboardHeader dateLabel={dateFormatter.format(today)} />
         <InReviewPanel />
-        <StatsCards />
-        <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-2 space-y-6">
-            <TodaySchedule />
-            <TomorrowPlan />
-            <ClientProgress />
-          </div>
-          <div className="space-y-6">
-            <Alerts />
-            <ActivityFeed />
-          </div>
+        <div className="flex flex-col items-center gap-4 text-center px-6 py-16">
+          <div className="text-5xl">🚧</div>
+          <h2 className="text-xl font-bold text-[var(--color-gray-900)]">Dashboard is getting a makeover</h2>
+          <p className="text-sm text-[var(--color-gray-500)] max-w-sm leading-relaxed">
+            We're crafting something beautiful here. Check back soon — good things take time. ✨
+          </p>
         </div>
       </div>
     </main>

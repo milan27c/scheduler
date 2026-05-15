@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import Image from "next/image";
 import {
-  Search, Filter, ChevronDown, ChevronUp,
+  Search, Filter, ChevronDown, ChevronUp, ArrowUpDown,
   Clock, AlertCircle, CheckCircle2, ListTodo, X, Plus,
   Upload, FileText, Calendar, Tag, ArrowRight, ChevronRight, Trash2, Download, ZoomIn,
   FileImage, MessageSquare,
@@ -12,6 +12,7 @@ import Select from "react-select";
 import { default as CreatableSelect } from "react-select/creatable";
 import { useAuth } from "@/components/AuthProvider";
 import { saveTaskImages, getTaskImages, removeTaskImage, type UploadedImage } from "@/lib/imageStore";
+import { useMemberPhotos } from "@/lib/useMemberPhotos";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -115,6 +116,19 @@ const inlineStatusStyles = {
 type SortKey = "name" | "client" | "assigneeName" | "priority" | "hours" | "status" | "planDate" | "deadline";
 type SortDir = "asc" | "desc";
 
+const SORT_OPTIONS = [
+  { value: "planDate:asc",   label: "Date (Oldest first)" },
+  { value: "planDate:desc",  label: "Date (Newest first)" },
+  { value: "deadline:asc",   label: "Deadline (Earliest first)" },
+  { value: "deadline:desc",  label: "Deadline (Latest first)" },
+  { value: "priority:asc",   label: "Priority (Highest first)" },
+  { value: "priority:desc",  label: "Priority (Lowest first)" },
+  { value: "name:asc",       label: "Name A–Z" },
+  { value: "name:desc",      label: "Name Z–A" },
+  { value: "hours:asc",      label: "Hours (Least first)" },
+  { value: "hours:desc",     label: "Hours (Most first)" },
+];
+
 const PRIORITY_ORDER: Record<Priority, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
 const STATUS_ORDER: Record<TaskStatus, number> = {
   "unassigned": 0, "assigned": 1, "work-in-progress": 2, "internal-review": 3,
@@ -177,7 +191,7 @@ function buildCampaignItemLookup(campaigns: StoredCampaign[]): Map<string, { cop
   return map;
 }
 
-function flattenPlans(plans: StoredPlan[], teamMembers: StoredMember[], campaignLookup?: Map<string, { copy?: string; note?: string; references?: string[] }>): FlatTask[] {
+function flattenPlans(plans: StoredPlan[], teamMembers: StoredMember[], campaignLookup?: Map<string, { copy?: string; note?: string; references?: string[] }>, memberPhotos: Record<string, string> = {}): FlatTask[] {
   const sorted = [...plans].sort((a, b) => a.date.localeCompare(b.date));
 
   // First pass: build a map of all tasks by id so caption tasks can look up their parent
@@ -197,7 +211,7 @@ function flattenPlans(plans: StoredPlan[], teamMembers: StoredMember[], campaign
     Object.entries(plan.distribution).forEach(([memberId, tasks]) => {
       const planMember = plan.members.find((m) => m.id === memberId);
       const teamMember = teamMembers.find((m) => m.id === memberId);
-      const photo = teamMember?.photo || planMember?.photo;
+      const photo = memberPhotos[memberId] ?? teamMember?.photo ?? planMember?.photo;
       tasks.forEach((task) => {
         const enriched = campaignLookup?.get(task.id);
 
@@ -307,13 +321,13 @@ const EMPTY_NEW_TASK = {
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, icon, color }: { label: string; value: number; icon: React.ReactNode; color: string }) {
+function StatCard({ label, value, imgSrc, accent }: { label: string; value: number; imgSrc: string; accent: string }) {
   return (
-    <div className="bg-[var(--surface-card)] rounded-xl border border-[var(--color-card-border)] shadow-[0_1px_4px_rgba(0,0,0,0.06)] p-5 flex items-center gap-4">
-      <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${color}`}>{icon}</div>
+    <div className={`relative overflow-hidden rounded-xl border-[1.5px] p-5 flex items-center gap-4 ${accent}`}>
+      <img src={imgSrc} alt={label} className="w-14 h-14 object-contain flex-shrink-0" />
       <div>
-        <p className="text-2xl font-bold text-[var(--color-gray-900)]">{value}</p>
-        <p className="text-xs text-[var(--color-gray-500)] mt-0.5">{label}</p>
+        <p className="text-3xl font-bold text-[var(--color-gray-900)] leading-none">{value}</p>
+        <p className="text-xs font-semibold text-[var(--color-gray-500)] mt-1.5">{label}</p>
       </div>
     </div>
   );
@@ -385,6 +399,7 @@ function CreatorTasksView() {
   const [allTasks, setAllTasks] = useState<FlatTask[]>([]);
   const [plans, setPlans] = useState<StoredPlan[]>([]);
   const [mounted, setMounted] = useState(false);
+  const memberPhotos = useMemberPhotos();
   const [selectedTask, setSelectedTask] = useState<FlatTask | null>(null);
   const [taskFeedback, setTaskFeedback] = useState<Record<string, { author: string; text: string; createdAt: string }[]>>({});
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -441,7 +456,7 @@ function CreatorTasksView() {
     const campaigns: StoredCampaign[] = JSON.parse(localStorage.getItem("campaigns") || "[]");
     const lookup = buildCampaignItemLookup(campaigns);
     setPlans(stored);
-    setAllTasks(flattenPlans(stored, members, lookup));
+    setAllTasks(flattenPlans(stored, members, lookup, memberPhotos));
     const savedMeta: Record<string, string[]> = JSON.parse(localStorage.getItem("task-upload-meta") || "{}");
     setUploadMeta(savedMeta);
     setTaskFeedback(JSON.parse(localStorage.getItem("task-feedback") || "{}"));
@@ -1137,6 +1152,7 @@ function ManagerTasksView() {
   const [plans, setPlans] = useState<StoredPlan[]>([]);
   const [teamMembers, setTeamMembers] = useState<StoredMember[]>([]);
   const [mounted, setMounted] = useState(false);
+  const memberPhotos = useMemberPhotos();
 
   // Filters
   const [search, setSearch] = useState("");
@@ -1145,6 +1161,17 @@ function ManagerTasksView() {
   const [filterAssignee, setFilterAssignee] = useState<{ value: string; label: string }[]>([]);
   const [filterClient, setFilterClient] = useState<{ value: string; label: string }[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node))
+        setShowSortMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   // Sort
   const [sortKey, setSortKey] = useState<SortKey>("planDate");
@@ -1200,7 +1227,7 @@ function ManagerTasksView() {
     setPlans(stored);
     setTeamMembers(members);
     const lookup = buildCampaignItemLookup(campaigns);
-    const planTasks = flattenPlans(stored, members, lookup);
+    const planTasks = flattenPlans(stored, members, lookup, memberPhotos);
     const campaignTasks = flattenUnassignedCampaignTasks(campaigns);
     const deduped = new Map<string, FlatTask>();
     [...planTasks, ...campaignTasks].forEach((t) => {
@@ -1211,8 +1238,8 @@ function ManagerTasksView() {
   }, []);
 
   const assigneeOptions = useMemo(() =>
-    teamMembers.map((m) => ({ value: m.id, label: m.name, photo: m.photo })),
-  [teamMembers]);
+    teamMembers.map((m) => ({ value: m.id, label: m.name, photo: memberPhotos[m.id] })),
+  [teamMembers, memberPhotos]);
 
   const clientOptions = useMemo(() => {
     const clients = [...new Set(allTasks.map((t) => t.client))];
@@ -1271,7 +1298,7 @@ function ManagerTasksView() {
     if (!member) return;
     const updated = allTasks.map((t) =>
       t.id === taskId
-        ? { ...t, assigneeId: memberId, assigneeName: member.name, assigneePhoto: member.photo }
+        ? { ...t, assigneeId: memberId, assigneeName: member.name, assigneePhoto: memberPhotos[memberId] }
         : t
     );
     setAllTasks(updated);
@@ -1384,7 +1411,7 @@ function ManagerTasksView() {
 
     localStorage.setItem("daily-plans", JSON.stringify(updatedPlans));
     setPlans(updatedPlans);
-    setAllTasks(flattenPlans(updatedPlans, teamMembers));
+    setAllTasks(flattenPlans(updatedPlans, teamMembers, undefined, memberPhotos));
     setShowAddDrawer(false);
     setNewTask({ ...EMPTY_NEW_TASK });
   };
@@ -1449,16 +1476,16 @@ function ManagerTasksView() {
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <StatCard label="Total Tasks" value={stats.total} icon={<ListTodo size={18} className="text-[var(--color-gray-500)]" />} color="bg-[var(--color-gray-100)]" />
-          <StatCard label="In Progress" value={stats.inProgress} icon={<Clock size={18} className="text-[var(--color-warning)]" />} color="bg-amber-50" />
-          <StatCard label="Overdue" value={stats.overdue} icon={<AlertCircle size={18} className="text-[var(--color-danger)]" />} color="bg-red-50" />
-          <StatCard label="Completed" value={stats.done} icon={<CheckCircle2 size={18} className="text-[var(--color-success)]" />} color="bg-green-50" />
+          <StatCard label="Total Tasks"  value={stats.total}      imgSrc="/images/tasks/Total Tasks.png"  accent="bg-gradient-to-br from-violet-50 to-indigo-100 border-indigo-200" />
+          <StatCard label="In Progress"  value={stats.inProgress} imgSrc="/images/tasks/In Progress.png"  accent="bg-gradient-to-br from-amber-50 to-orange-100 border-orange-200" />
+          <StatCard label="Overdue"      value={stats.overdue}    imgSrc="/images/tasks/Overdue.png"      accent="bg-gradient-to-br from-rose-50 to-red-100 border-red-200" />
+          <StatCard label="Completed"    value={stats.done}       imgSrc="/images/tasks/Completed.png"    accent="bg-gradient-to-br from-emerald-50 to-teal-100 border-teal-200" />
         </div>
 
         {/* Toolbar */}
-        <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex items-center justify-between gap-3 mb-4">
           {/* Search */}
-          <div className="relative flex-1 min-w-[220px]">
+          <div className="relative w-72">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-gray-400)]" />
             <input
               type="text"
@@ -1474,17 +1501,41 @@ function ManagerTasksView() {
             )}
           </div>
 
-          {/* Filter toggle */}
-          <button
-            onClick={() => setShowFilters((v) => !v)}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-semibold transition-colors ${showFilters || activeFilterCount > 0 ? "border-[#5231FF] text-[#5231FF] bg-[var(--color-primary-light)]" : "border-[var(--color-gray-200)] text-[var(--color-gray-700)] bg-[var(--surface-card)] hover:bg-[var(--color-gray-100)]"}`}
-          >
-            <Filter size={14} />
-            Filters
-            {activeFilterCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-[#5231FF] text-white text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
-            )}
-          </button>
+          {/* Sort + Filter */}
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="relative" ref={sortMenuRef}>
+              <button
+                onClick={() => setShowSortMenu((v) => !v)}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-semibold transition-colors ${sortKey !== "planDate" || sortDir !== "asc" ? "border-[#5231FF] text-[#5231FF] bg-[var(--color-primary-light)]" : "border-[var(--color-gray-200)] text-[var(--color-gray-700)] bg-[var(--surface-card)] hover:bg-[var(--color-gray-100)]"}`}
+              >
+                <ArrowUpDown size={14} />
+                Sort: {({ planDate: "Date", deadline: "Deadline", priority: "Priority", name: "Name", hours: "Hours", assigneeName: "Assignee", client: "Client", status: "Status" } as Record<string, string>)[sortKey] ?? "Date"}
+              </button>
+              {showSortMenu && (
+                <div className="absolute right-0 top-full mt-1 z-[100] bg-[var(--surface-card)] border border-[var(--color-gray-200)] rounded-xl shadow-[0_4px_16px_rgba(0,0,0,0.1)] overflow-hidden py-1 min-w-[220px]">
+                  {SORT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => { const [k, d] = opt.value.split(":"); setSortKey(k as SortKey); setSortDir(d as SortDir); setShowSortMenu(false); }}
+                      className={`w-full text-left px-4 py-2 text-sm transition-colors ${`${sortKey}:${sortDir}` === opt.value ? "bg-[var(--color-primary-light)] text-[#5231FF] font-semibold" : "text-[var(--color-gray-700)] hover:bg-[var(--color-gray-100)]"}`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setShowFilters((v) => !v)}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-semibold transition-colors ${showFilters || activeFilterCount > 0 ? "border-[#5231FF] text-[#5231FF] bg-[var(--color-primary-light)]" : "border-[var(--color-gray-200)] text-[var(--color-gray-700)] bg-[var(--surface-card)] hover:bg-[var(--color-gray-100)]"}`}
+            >
+              <Filter size={14} />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="w-5 h-5 rounded-full bg-[#5231FF] text-white text-[10px] font-bold flex items-center justify-center">{activeFilterCount}</span>
+              )}
+            </button>
+          </div>
 
           {/* Bulk action */}
           {selected.size > 0 && (
@@ -1616,13 +1667,13 @@ function ManagerTasksView() {
 
                     // Shared avatar+firstName renderer for member columns
                     const MemberChip = ({ memberId, name, locked }: { memberId: string; name: string; locked?: boolean }) => {
-                      const opt = assigneeOptions.find((o) => o.value === memberId);
                       const ini = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+                      const photo = memberPhotos[memberId];
                       return (
                         <div className={`flex items-center gap-1.5 ${locked ? "px-1.5 py-0.5 rounded-lg bg-green-50" : ""}`}>
                           {locked && <CheckCircle2 size={12} className="text-[#10B981] shrink-0" />}
-                          {opt?.photo ? (
-                            <img src={opt.photo} alt={name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                          {photo ? (
+                            <img src={photo} alt={name} className="w-5 h-5 rounded-full object-cover shrink-0" />
                           ) : (
                             <div className="w-5 h-5 rounded-full bg-[#5231FF] flex items-center justify-center text-white text-[9px] font-bold shrink-0">{ini}</div>
                           )}
@@ -1646,8 +1697,9 @@ function ManagerTasksView() {
                     // formatOptionLabel receives (option, { context }) — "value" = inside control, "menu" = in dropdown
                     const memberFormatLabel = (opt: { value: string; label: string; photo?: string }, meta: { context: string }) => {
                       const ini = opt.label.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-                      const avatar = opt.photo
-                        ? <img src={opt.photo} alt={opt.label} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                      const photo = memberPhotos[opt.value] ?? opt.photo;
+                      const avatar = photo
+                        ? <img src={photo} alt={opt.label} className="w-5 h-5 rounded-full object-cover shrink-0" />
                         : <div className="w-5 h-5 rounded-full bg-[#5231FF] flex items-center justify-center text-white text-[9px] font-bold shrink-0">{ini}</div>;
                       if (meta.context === "value") {
                         // Compact: avatar + name, no extra padding
@@ -1657,7 +1709,7 @@ function ManagerTasksView() {
                     };
 
                     return (
-                      <tr key={task.id} className={`group transition-colors ${isClientApproved ? "bg-emerald-50/60 hover:bg-emerald-50" : isSelected ? "bg-[var(--color-primary-light)] hover:bg-[var(--color-primary-light)]" : "hover:bg-[var(--color-gray-50)]"}`}>
+                      <tr key={task.id} className={`group transition-colors ${isClientApproved ? "bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100" : isSelected ? "bg-[var(--color-primary-light)] hover:bg-[var(--color-primary-light)]" : "hover:bg-[var(--color-gray-50)]"}`}>
                         <td className="px-4 py-3">
                           <input
                             type="checkbox"
@@ -1827,12 +1879,12 @@ function ManagerTasksView() {
                   placeholder="Select assignee…"
                   isClearable
                   formatOptionLabel={(opt: { value: string; label: string }) => {
-                    const m = teamMembers.find((tm) => tm.id === opt.value);
+                    const photo = memberPhotos[opt.value];
                     const ini = opt.label.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
                     return (
                       <div className="flex items-center gap-2">
-                        {m?.photo ? (
-                          <img src={m.photo} alt={opt.label} className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                        {photo ? (
+                          <img src={photo} alt={opt.label} className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
                         ) : (
                           <div className="w-5 h-5 rounded-full bg-[#5231FF] flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">{ini}</div>
                         )}

@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Plus, Trash2, LayoutGrid, List, Upload, AlertCircle, Zap } from "lucide-react";
 import Select from "react-select";
 import EmptyState from "@/components/EmptyState";
+import { saveMemberPhoto, getAllMemberPhotos, deleteMemberPhoto } from "@/lib/imageStore";
 
 interface TeamMember {
   id: string;
@@ -55,18 +56,13 @@ export default function TeamPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [newMember, setNewMember] = useState({ name: "", designation: null as any, email: "", photo: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [memberPhotos, setMemberPhotos] = useState<Record<string, string>>({});
 
   const inputClass = "w-full border border-[var(--color-gray-200)] rounded-lg px-3 py-2 text-sm text-[var(--color-gray-900)] placeholder:text-[var(--color-gray-500)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent transition-colors bg-[var(--surface-input)]";
   const labelClass = "block text-xs font-medium text-[var(--color-gray-700)] mb-1.5";
 
   useEffect(() => {
     setMounted(true);
-
-    // Clean up old data to free space
-    try {
-      localStorage.removeItem("task-uploads");
-      localStorage.removeItem("task-upload-meta");
-    } catch {}
 
     const SEED_VERSION = "v2";
     const stored = localStorage.getItem("team-members");
@@ -80,6 +76,9 @@ export default function TeamPage() {
         localStorage.setItem("team-members-seed", SEED_VERSION);
       } catch {}
     }
+
+    // Load all member photos from IndexedDB
+    getAllMemberPhotos().then(setMemberPhotos).catch(() => {});
   }, []);
 
   if (!mounted) return null;
@@ -91,59 +90,40 @@ export default function TeamPage() {
     if (!newMember.name || !newMember.designation || !newMember.email) return;
 
     if (editingId) {
-      // Update existing member
       const updated = members.map((m) =>
         m.id === editingId
-          ? { ...m, name: newMember.name, designation: newMember.designation.value, email: newMember.email, photo: newMember.photo || undefined }
+          ? { ...m, name: newMember.name, designation: newMember.designation.value, email: newMember.email }
           : m
       );
       setMembers(updated);
-      try {
-        localStorage.setItem("team-members", JSON.stringify(updated));
-      } catch (e) {
-        if (e instanceof Error && e.message.includes("quota")) {
-          try {
-            const compactMembers = updated.map(({ photo, ...rest }) => rest);
-            localStorage.setItem("team-members", JSON.stringify(compactMembers));
-          } catch {
-            console.error("Could not save to localStorage");
-          }
-        }
+      // Save photo to IndexedDB; strip from localStorage
+      if (newMember.photo) {
+        saveMemberPhoto(editingId, newMember.photo).then(() => {
+          setMemberPhotos((p) => ({ ...p, [editingId]: newMember.photo }));
+        }).catch(() => {});
       }
+      localStorage.setItem("team-members", JSON.stringify(updated.map(({ photo, ...rest }) => rest)));
       setEditingId(null);
     } else {
-      // Add new member
+      const id = crypto.randomUUID();
       const member: TeamMember = {
-        id: crypto.randomUUID(),
+        id,
         name: newMember.name,
         designation: newMember.designation.value,
         email: newMember.email,
-        photo: newMember.photo || undefined,
         assignedTasks: 0,
         completedTasks: 0,
         workload: 0,
       };
       const updated = [...members, member];
       setMembers(updated);
-
-      try {
-        localStorage.setItem("team-members", JSON.stringify(updated));
-      } catch (e) {
-        // If quota exceeded, clear unnecessary data and try again
-        if (e instanceof Error && e.message.includes("quota")) {
-          try {
-            // Clear upload metadata and old data
-            localStorage.removeItem("task-upload-meta");
-            localStorage.removeItem("task-uploads");
-            // Store member without photos to reduce size
-            const compactMembers = updated.map(({ photo, ...rest }) => rest);
-            localStorage.setItem("team-members", JSON.stringify(compactMembers));
-          } catch {
-            // If still failing, just keep in memory
-            console.error("Could not save to localStorage, keeping in memory only");
-          }
-        }
+      // Save photo to IndexedDB; strip from localStorage
+      if (newMember.photo) {
+        saveMemberPhoto(id, newMember.photo).then(() => {
+          setMemberPhotos((p) => ({ ...p, [id]: newMember.photo }));
+        }).catch(() => {});
       }
+      localStorage.setItem("team-members", JSON.stringify(updated.map(({ photo, ...rest }) => rest)));
     }
 
     setShowAddModal(false);
@@ -153,19 +133,10 @@ export default function TeamPage() {
   const deleteMember = (id: string) => {
     const updated = members.filter((m) => m.id !== id);
     setMembers(updated);
-    try {
-      localStorage.setItem("team-members", JSON.stringify(updated));
-    } catch (e) {
-      // If quota exceeded, try with compact version
-      if (e instanceof Error && e.message.includes("quota")) {
-        try {
-          const compactMembers = updated.map(({ photo, ...rest }) => rest);
-          localStorage.setItem("team-members", JSON.stringify(compactMembers));
-        } catch {
-          console.error("Could not save to localStorage");
-        }
-      }
-    }
+    localStorage.setItem("team-members", JSON.stringify(updated.map(({ photo, ...rest }) => rest)));
+    deleteMemberPhoto(id).then(() => {
+      setMemberPhotos((p) => { const n = { ...p }; delete n[id]; return n; });
+    }).catch(() => {});
     setDeleteConfirm(null);
   };
 
@@ -264,7 +235,7 @@ export default function TeamPage() {
                   {/* Action Buttons */}
                   <div className="absolute top-6 right-6 flex items-center gap-1">
                     <button
-                      onClick={() => { setEditingId(member.id); setNewMember({ name: member.name, designation: { value: member.designation, label: member.designation }, email: member.email, photo: member.photo || "" }); }}
+                      onClick={() => { setEditingId(member.id); setNewMember({ name: member.name, designation: { value: member.designation, label: member.designation }, email: member.email, photo: memberPhotos[member.id] || "" }); }}
                       className="p-1.5 rounded-lg text-[var(--color-gray-400)] hover:text-[#5231FF] hover:bg-blue-50 transition-colors"
                       title="Edit member"
                     >
@@ -285,8 +256,8 @@ export default function TeamPage() {
                   {/* Profile */}
                   <div className="flex items-center gap-3 mb-5 pr-12">
                     <div className="w-9 h-9 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center shrink-0 overflow-hidden border border-[var(--color-primary)]">
-                      {member.photo ? (
-                        <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
+                      {memberPhotos[member.id] ? (
+                        <img src={memberPhotos[member.id]} alt={member.name} className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-xs font-bold text-[var(--color-primary)]">{member.name.split(" ").map(n => n.charAt(0)).join("").slice(0, 2).toUpperCase()}</span>
                       )}
@@ -342,8 +313,8 @@ export default function TeamPage() {
                 <div key={member.id} className="flex items-center justify-between p-6 hover:bg-[var(--color-gray-50)] transition-colors">
                   <div className="flex items-center gap-4 flex-1">
                     <div className="w-10 h-10 rounded-full bg-[var(--color-primary-light)] flex items-center justify-center shrink-0 overflow-hidden border border-[var(--color-primary)]">
-                      {member.photo ? (
-                        <img src={member.photo} alt={member.name} className="w-full h-full object-cover" />
+                      {memberPhotos[member.id] ? (
+                        <img src={memberPhotos[member.id]} alt={member.name} className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-xs font-bold text-[var(--color-primary)]">{member.name.split(" ").map(n => n.charAt(0)).join("").slice(0, 2).toUpperCase()}</span>
                       )}

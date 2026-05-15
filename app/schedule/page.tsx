@@ -5,6 +5,7 @@ import { Clock, ChevronDown, Calendar, CheckCircle2, X, Pencil, Plus } from "luc
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Select from "react-select";
+import { useMemberPhotos } from "@/lib/useMemberPhotos";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -167,6 +168,7 @@ function MemberSection({ member, tasks, onStatusChange }: {
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const initials = member.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  const memberPhotos = useMemberPhotos();
   const totalHours = tasks.reduce((s, t) => s + t.hours, 0);
   const done = tasks.filter((t) => t.status === "client-approved").length;
 
@@ -176,8 +178,8 @@ function MemberSection({ member, tasks, onStatusChange }: {
         onClick={() => setCollapsed((c) => !c)}
         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--color-gray-50)] transition-colors text-left"
       >
-        {member.photo ? (
-          <img src={member.photo} alt={member.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+        {memberPhotos[member.id] ? (
+          <img src={memberPhotos[member.id]} alt={member.name} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
         ) : (
           <div className="w-9 h-9 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">{initials}</div>
         )}
