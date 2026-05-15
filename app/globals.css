@@ -1,0 +1,184 @@
+@import "tailwindcss";
+@source "../app/**/*.{tsx,ts,jsx,js}";
+@source "../components/**/*.{tsx,ts,jsx,js}";
+
+/* Enable dark: variants when [data-theme="dark"] is on a parent */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --color-primary: #5231FF;
+  --color-primary-hover: #3D1FE8;
+  --color-primary-light: #EDE9FF;
+
+  --color-gray-900: #111118;
+  --color-gray-700: #374151;
+  --color-gray-500: #6B7280;
+  --color-gray-400: #9CA3AF;
+  --color-gray-300: #D1D5DB;
+  --color-gray-200: #E5E7EB;
+  --color-gray-100: #F3F4F6;
+  --color-card-border: #E8E8E9;
+  --color-gray-50: #F9FAFB;
+
+  --color-secondary-btn: #4B5563;
+  --color-secondary-btn-hover: #374151;
+
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #3B82F6;
+
+  /* Surface tokens */
+  --surface-page: #ffffff;
+  --surface-card: #FAFAFA;
+  --surface-elevated: #FAFAFA;
+  --surface-input: #FAFAFA;
+  --surface-subtle: #F5F5F5;
+}
+
+[data-theme="dark"] {
+  --color-primary: #6366f1;
+  --color-primary-hover: #818cf8;
+  --color-primary-light: rgba(99, 102, 241, 0.15);
+
+  /* Text scale — flipped to light for dark backgrounds */
+  --color-gray-900: #ffffff;
+  --color-gray-700: #f0f4f8;
+  --color-gray-500: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-300: #64748b;
+  --color-gray-200: #475569;
+  --color-gray-100: #334155;
+  --color-card-border: #334155;
+  --color-gray-50: #1e293b;
+
+  --color-secondary-btn: #475569;
+  --color-secondary-btn-hover: #64748b;
+
+  /* Surface tokens — much darker */
+  --surface-page: #010910;
+  --surface-card: #0f1419;
+  --surface-elevated: #1a202c;
+  --surface-input: #0f1419;
+  --surface-subtle: #141820;
+}
+
+/* Dark mode overrides for nav bar and breadcrumb */
+[data-theme="dark"] header,
+[data-theme="dark"] header + div {
+  background-color: #010910 !important;
+}
+
+@theme inline {
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+}
+
+body,
+html {
+  background-color: var(--surface-page);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  color: var(--color-gray-900);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 16px;
+}
+
+/* Dark mode overrides for status, priority, and content type badges */
+[data-theme="dark"] {
+  /* Status badge colors — light backgrounds become dark */
+  --status-blue-bg: #0c4a6e;
+  --status-blue-text: #7dd3fc;
+  --status-purple-bg: #4c1d95;
+  --status-purple-text: #d8b4fe;
+  --status-green-bg: #064e3b;
+  --status-green-text: #6ee7b7;
+  --status-red-bg: #7f1d1d;
+  --status-red-text: #fca5a5;
+  --status-yellow-bg: #78350f;
+  --status-yellow-text: #fcd34d;
+  --status-orange-bg: #7c2d12;
+  --status-orange-text: #fdba74;
+  --status-indigo-bg: #3730a3;
+  --status-indigo-text: #a5b4fc;
+  --status-teal-bg: #134e4a;
+  --status-teal-text: #5eead4;
+  --status-pink-bg: #831843;
+  --status-pink-text: #f472b6;
+}
+
+/* Global dark mode badge overrides */
+[data-theme="dark"] .bg-blue-50 { background-color: #0c4a6e !important; }
+[data-theme="dark"] .text-blue-600, [data-theme="dark"] .text-blue-700 { color: #7dd3fc !important; }
+[data-theme="dark"] .bg-blue-100 { background-color: #0c4a6e !important; }
+
+[data-theme="dark"] .bg-purple-50 { background-color: #4c1d95 !important; }
+[data-theme="dark"] .text-purple-600, [data-theme="dark"] .text-purple-700 { color: #d8b4fe !important; }
+[data-theme="dark"] .bg-purple-100 { background-color: #4c1d95 !important; }
+
+[data-theme="dark"] .bg-green-50 { background-color: #064e3b !important; }
+[data-theme="dark"] .text-green-600, [data-theme="dark"] .text-green-700 { color: #6ee7b7 !important; }
+[data-theme="dark"] .bg-green-100 { background-color: #064e3b !important; }
+
+[data-theme="dark"] .bg-red-50 { background-color: #7f1d1d !important; }
+[data-theme="dark"] .text-red-600, [data-theme="dark"] .text-red-700 { color: #fca5a5 !important; }
+[data-theme="dark"] .bg-red-100 { background-color: #7f1d1d !important; }
+
+[data-theme="dark"] .bg-yellow-50 { background-color: #78350f !important; }
+[data-theme="dark"] .bg-yellow-100 { background-color: #78350f !important; }
+[data-theme="dark"] .text-yellow-600, [data-theme="dark"] .text-yellow-700 { color: #fcd34d !important; }
+
+[data-theme="dark"] .bg-amber-50 { background-color: #78350f !important; }
+[data-theme="dark"] .bg-amber-100 { background-color: #78350f !important; }
+[data-theme="dark"] .text-amber-600, [data-theme="dark"] .text-amber-700 { color: #fcd34d !important; }
+
+[data-theme="dark"] .bg-orange-50 { background-color: #7c2d12 !important; }
+[data-theme="dark"] .bg-orange-100 { background-color: #7c2d12 !important; }
+[data-theme="dark"] .text-orange-600, [data-theme="dark"] .text-orange-700 { color: #fdba74 !important; }
+
+[data-theme="dark"] .bg-indigo-50 { background-color: #3730a3 !important; }
+[data-theme="dark"] .text-indigo-700 { color: #a5b4fc !important; }
+
+[data-theme="dark"] .bg-teal-50 { background-color: #134e4a !important; }
+[data-theme="dark"] .text-teal-700 { color: #5eead4 !important; }
+
+[data-theme="dark"] .bg-pink-50 { background-color: #831843 !important; }
+[data-theme="dark"] .text-pink-700 { color: #f472b6 !important; }
+
+/* Modal backdrops and overlays */
+[data-theme="dark"] .bg-black\/50 { background-color: rgba(15, 23, 42, 0.8) !important; }
+
+/* Input field backgrounds and focus states */
+[data-theme="dark"] input:focus { background-color: var(--surface-input); }
+[data-theme="dark"] textarea:focus { background-color: var(--surface-input); }
+
+/* Dropdown and select menu dark mode */
+[data-theme="dark"] .react-select__control {
+  background-color: var(--surface-input);
+  border-color: var(--color-gray-300);
+}
+[data-theme="dark"] .react-select__menu {
+  background-color: var(--surface-card);
+}
+[data-theme="dark"] .react-select__option {
+  background-color: var(--surface-card);
+  color: var(--color-gray-900);
+}
+[data-theme="dark"] .react-select__option--isFocused {
+  background-color: var(--surface-elevated);
+}
+[data-theme="dark"] .react-select__option--isSelected {
+  background-color: #5231FF;
+  color: white;
+}
