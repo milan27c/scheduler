@@ -171,7 +171,7 @@ export default function CreateCampaignPlanPage() {
     setUploadedFile(file.name);
     Papa.parse(file, {
       header: true, skipEmptyLines: true,
-      complete: (res) => {
+      complete: (res: Papa.ParseResult<string[]>) => {
         const items = (res.data as any[])
           .map((row) => ({ id: crypto.randomUUID(), contentType: row["Content Type"] || row.contentType || "", quantity: String(row.Quantity || row.quantity || "") }))
           .filter((i) => i.contentType);
