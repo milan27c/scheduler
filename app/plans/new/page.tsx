@@ -395,8 +395,8 @@ export default function CreateCampaignPlanPage() {
       </div>
 
       {/* Stepper */}
-      <div className="px-6 mb-6 mt-4 shrink-0 flex justify-center">
-        <div className="w-full max-w-lg bg-[var(--color-gray-50)] border border-[var(--color-gray-200)] rounded-2xl px-8 py-5 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+      <div className="px-6 mb-6 mt-4 shrink-0">
+        <div className="w-full bg-[var(--color-gray-50)] border border-[var(--color-gray-200)] rounded-2xl px-8 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
           <div className="flex items-center">
             {STEPS.map((label, idx) => {
               const num = idx + 1;
@@ -407,14 +407,14 @@ export default function CreateCampaignPlanPage() {
                   <button
                     onClick={() => setStep(num)}
                     disabled={!editId && !done && !active}
-                    className={`flex flex-col items-center gap-2 shrink-0 ${!editId && !done && !active ? "cursor-not-allowed" : "cursor-pointer"}`}
+                    className={`flex items-center gap-2.5 shrink-0 ${!editId && !done && !active ? "cursor-not-allowed" : "cursor-pointer"}`}
                   >
-                    <div className="relative flex items-center justify-center">
+                    <div className="relative flex items-center justify-center flex-shrink-0">
                       {active && <div className="absolute w-10 h-10 rounded-full border-2 border-[#5231FF] opacity-20" />}
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                        done   ? "bg-[#5231FF] text-white shadow-[0_0_0_3px_rgba(82,49,255,0.15)]"
+                        done    ? "bg-[#5231FF] text-white shadow-[0_0_0_3px_rgba(82,49,255,0.15)]"
                         : active ? "bg-[#5231FF] text-white shadow-[0_0_0_4px_rgba(82,49,255,0.18)]"
-                        : "bg-[var(--surface-card)] border-2 border-[var(--color-gray-200)] text-[var(--color-gray-400)]"
+                        : "bg-[var(--surface-input)] border-2 border-[var(--color-gray-200)] text-[var(--color-gray-400)]"
                       }`}>
                         {done ? <Check size={13} /> : num}
                       </div>
@@ -424,7 +424,7 @@ export default function CreateCampaignPlanPage() {
                     </p>
                   </button>
                   {idx < STEPS.length - 1 && (
-                    <div className="flex-1 mx-4 mb-5">
+                    <div className="flex-1 mx-3">
                       <div className="relative h-px">
                         <div className="absolute inset-0 bg-[var(--color-gray-200)]" />
                         <div className={`absolute inset-y-0 left-0 bg-[#5231FF] transition-all duration-500 ${done ? "right-0" : "right-full"}`} />
